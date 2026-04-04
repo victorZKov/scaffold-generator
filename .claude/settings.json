@@ -1,0 +1,47 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x /Users/victorzaragoza/Documents/Dev/k/tb/tb-ai-platform/.claude/hooks/*.sh)",
+      "Bash(chmod +x /Users/victorzaragoza/Documents/Dev/k/agentic-ops/.claude/hooks/*.sh)",
+      "Bash(npx autoskills:*)"
+    ],
+    "additionalDirectories": [
+      "/Users/victorzaragoza/Documents/Dev/k/tb/tb-ai-platform",
+      "/Users/victorzaragoza/Documents/Dev/k",
+      "/Users/victorzaragoza/Documents/Dev/k/agentic-ops/.claude"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-npm.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-git-push.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-claude-attribution.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-terraform-apply.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-destructive-actions.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-no-verify.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

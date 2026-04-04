@@ -1,0 +1,89 @@
+# ============================================================
+# .gitignore — {{ProjectName}}
+# ============================================================
+
+# ----- OS -----
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+desktop.ini
+
+# ----- IDE -----
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.swp
+*.swo
+
+# ----- .NET -----
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.log
+coverage/
+TestResults/
+*.nupkg
+*.snupkg
+local.settings.json
+appsettings.local.json
+appsettings.Development.json
+
+# ----- Node / Frontend -----
+node_modules/
+dist/
+.pnpm-store/
+.pnpm-debug.log
+*.tsbuildinfo
+
+# ----- Terraform -----
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+*.tfplan
+terraform.tfvars
+!terraform.tfvars.example
+.terraformrc
+terraform.rc
+
+# ----- Secrets / Credentials -----
+*.env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+secrets/
+credentials/
+
+# ----- Docker -----
+.dockerignore
+docker-compose.override.yml
+
+# ----- Aspire -----
+.aspire/
+
+# ----- Local temp -----
+.tmp/
+tmp/
+scratch/
+
+# ----- Data (local DBs, seeded data) -----
+data/
+*.sqlite
+*.db
+
+# ----- Reports -----
+reports/
+coverage-report/
