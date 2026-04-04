@@ -16,12 +16,8 @@ When the user asks to create / scaffold / start a new project, follow **`goals/s
 
 1. Announce the interview process
 2. Ask questions one at a time — wait for each answer
-3. Capture architecture description, functional reqs, and non-functional reqs
-4. Confirm project type (web, mobile, infra, API, combinations)
-5. Confirm DevOps platform (GitHub, GitLab, Azure DevOps) and issue tracking
-6. Ask about ATLAS+GOTCHA+SDD methodology adoption
-7. Never generate files until receiving explicit "SÍ" confirmation
-8. Generate in the prescribed order (including issues as runnable scripts)
+3. Never generate files until receiving explicit "SÍ" confirmation
+4. Generate in the prescribed order
 
 **Never take shortcuts. Never assume answers. Always ask.**
 
@@ -35,16 +31,12 @@ Our standard mono-repo project uses:
 |-------|-----------|
 | Frontend | React + Vite + TypeScript + shadcn/ui + Tailwind CSS |
 | Backend | .NET 10 (Clean Architecture) |
-| Mobile | React Native + Expo / .NET MAUI / Flutter |
 | Database | PostgreSQL |
 | Local dev | .NET Aspire |
 | Infrastructure | Terraform (Azure) |
-| CI/CD | GitHub Actions / GitLab CI / Azure DevOps Pipelines |
-| Git platform | GitHub / GitLab / Azure DevOps |
-| Issue tracking | GitHub Issues / ADO Boards / GitLab Issues |
+| CI/CD | GitHub Actions |
 | Package manager | **pnpm only** (never npm) |
 | Auth | Azure AD / Entra ID |
-| AI methodology | ATLAS + GOTCHA + SDD (optional) |
 
 ---
 
@@ -53,13 +45,11 @@ Our standard mono-repo project uses:
 See `context/architecture.md` for:
 - .NET Clean Architecture layer structure and naming conventions
 - React/Vite directory structure and key packages
-- Mobile app structure (React Native / MAUI / Flutter)
 - Terraform module pattern (Azure)
 - Aspire AppHost pattern
-- CI/CD workflow patterns (GitHub Actions, GitLab CI, ADO Pipelines)
+- GitHub Actions workflow patterns
 - Code coverage requirements (75% minimum)
-- Issue governance (GitHub, GitLab, ADO)
-- ATLAS + GOTCHA + SDD methodology integration
+- GitHub issue governance
 
 ---
 
@@ -89,11 +79,9 @@ These are non-negotiable. Hooks enforce most of them automatically.
 
 ---
 
-## ATLAS + GOTCHA + SDD Integration
+## GOTCHA Framework
 
-This project can optionally apply the combined methodology to generated projects:
-
-### GOTCHA (always present in this project)
+This project uses the GOTCHA framework internally:
 
 | Layer | Path | Purpose |
 |-------|------|---------|
@@ -101,28 +89,8 @@ This project can optionally apply the combined methodology to generated projects
 | Orchestration | Claude | Conducts interview, generates files |
 | Tools | `tools/` | Shell scripts for generation tasks |
 | Context | `context/` | Architecture patterns and templates |
-| Heuristics | (this file) | Non-negotiable rules |
+| Hard prompts | (this file) | Non-negotiable rules |
 | Args | User answers | Drive all generation decisions |
-
-### ATLAS (generated in target project if selected)
-
-| Phase | Purpose |
-|-------|---------|
-| **A**rchitect | Define system boundaries, constraints, tech decisions |
-| **T**race | Map data flow from trigger through response |
-| **L**ink | Identify integrations, protocols, failure handling |
-| **A**ssemble | Determine build order, patterns, quality standards |
-| **S**tress-test | Evaluate load, failure scenarios, security |
-
-### SDD (generated in target project if selected)
-
-| Stage | Purpose |
-|-------|---------|
-| **Specify** | Define requirements via user stories + acceptance criteria |
-| **Plan** | Generate technical strategy: architecture, data models, API contracts |
-| **Execute** | AI generates code, starting with tests |
-
-**Flow:** User Story (SDD) → ATLAS Checklist → GOTCHA Prompt → Task Breakdown → Code → Review
 
 ---
 

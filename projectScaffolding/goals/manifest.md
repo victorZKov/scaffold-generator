@@ -29,14 +29,10 @@ Given a set of answers, this system produces:
 - `README.md` — project overview skeleton
 - `src/backend/` — .NET Clean Architecture solution structure
 - `src/frontend/` — React + Vite application structure
-- `src/mobile/` — React Native / MAUI / Flutter structure (if selected)
-- `infrastructure/` — Terraform / Pulumi / Bicep module skeleton
+- `infrastructure/` — Terraform module skeleton
 - `docker-compose.yml` or Aspire `AppHost` — local dev
-- `.github/workflows/` or `.gitlab-ci.yml` or `azure-pipelines/` — CI/CD pipeline definitions
+- `.github/workflows/` — CI/CD pipeline definitions
 - `goals/`, `context/`, `tools/` — GOTCHA framework skeleton
-- `specs/` — SDD specification files (if ATLAS+GOTCHA+SDD selected)
-- `atlas/` — ATLAS checklist templates (if ATLAS+GOTCHA+SDD selected)
-- Initial issues/work items as runnable scripts (GitHub, GitLab, or ADO)
 
 ## Reference Projects
 

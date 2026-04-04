@@ -1,0 +1,25 @@
+# ============================================================
+# .npmrc — {{ProjectName}}
+# Enforces pnpm as sole package manager with security hardening
+# ============================================================
+
+# Enforce exact versions — no ^ or ~ prefixes
+save-exact=true
+
+# Disable install scripts by default (supply chain attack vector)
+ignore-scripts=true
+
+# Strict peer dependencies — fail on mismatches instead of silently resolving
+strict-peer-dependencies=true
+
+# Prevent accidental publish to npm registry
+publish=false
+
+# Hoist patterns — only hoist what's necessary, reduce phantom dependency risk
+shamefully-hoist=false
+
+# Lock file — always use and never modify manually
+frozen-lockfile=false
+
+# Auto-install peers
+auto-install-peers=true
