@@ -146,7 +146,7 @@ scaffold-generator/
 
 ## Read more
 
-- **Article:** [A Scaffold Generator for Claude — Built on Gartner's Seven Invariants](https://victorz.cloud/blog/scaffold-generator-claude-gartner)
+- **Article:** [A Scaffold Generator for Claude — Built on Gartner's Seven Invariants](https://blog.victorz.cloud/blog/scaffold-generator-claude-gartner)
 - **ATLAS + GOTCHA series:** [blog.victorz.cloud/blog?series=atlas-gotcha](https://blog.victorz.cloud/blog?series=atlas-gotcha)
 - **Gartner research:** *How to Govern Anthropic's Claude Code at Scale* (G00850426, March 2026)
 
