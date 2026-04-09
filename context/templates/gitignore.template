@@ -87,3 +87,14 @@ data/
 # ----- Reports -----
 reports/
 coverage-report/
+
+# ----- Claude provenance ledger -----
+# Local-only; uploaded as a CI artifact, NOT committed.
+.claude/provenance/
+
+# ----- Terraform plan artifacts -----
+tfplan
+tfplan.binary
+tfplan.json
+infracost.json
+sbom.spdx.json

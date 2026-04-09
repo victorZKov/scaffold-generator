@@ -1,0 +1,72 @@
+{
+  "_comment": "Managed Claude Code settings — Gartner governance, non-bypassable. Source: context/governance.md. {{PROJECT_NAME}}. Deploy as enterprise managed-policies file (per-OS path) so developers cannot override.",
+
+  "env": {
+    "ANTHROPIC_BASE_URL": "{{LLM_GATEWAY_URL}}",
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "{{OTEL_ENDPOINT}}",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "grpc",
+    "OTEL_RESOURCE_ATTRIBUTES": "team={{TEAM}},cost-center={{COST_CENTER}},project={{PROJECT_NAME}}"
+  },
+
+  "permissions": {
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(terraform apply:*)",
+      "Bash(terraform destroy:*)",
+      "Bash(npm install:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(az * delete:*)",
+      "Bash(az * purge:*)",
+      "Bash(kubectl delete:*)",
+      "WebFetch"
+    ],
+    "allow": [
+      "WebFetch(domain:{{ALLOWED_DOMAIN_1}})",
+      "WebFetch(domain:{{ALLOWED_DOMAIN_2}})"
+    ]
+  },
+
+  "enabledMcpjsonServers": [
+    "{{MCP_SERVER_1}}"
+  ],
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/block-npm.sh" },
+          { "type": "command", "command": ".claude/hooks/block-git-push.sh" },
+          { "type": "command", "command": ".claude/hooks/block-claude-attribution.sh" },
+          { "type": "command", "command": ".claude/hooks/block-terraform-apply.sh" },
+          { "type": "command", "command": ".claude/hooks/block-destructive-actions.sh" },
+          { "type": "command", "command": ".claude/hooks/block-no-verify.sh" }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/block-secrets.sh" },
+          { "type": "command", "command": ".claude/hooks/block-tf-public-exposure.sh" },
+          { "type": "command", "command": ".claude/hooks/require-tf-tags.sh" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": ".claude/hooks/enforce-invariants.sh" },
+          { "type": "command", "command": ".claude/hooks/require-tests.sh" },
+          { "type": "command", "command": ".claude/hooks/enforce-tf-policy.sh" },
+          { "type": "command", "command": ".claude/hooks/require-tf-module-tests.sh" },
+          { "type": "command", "command": ".claude/hooks/provenance-stamp.sh" }
+        ]
+      }
+    ]
+  }
+}

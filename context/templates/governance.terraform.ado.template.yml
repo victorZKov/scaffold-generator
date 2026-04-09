@@ -1,0 +1,108 @@
+# Terraform governance — Gartner 7-invariant pipeline gate
+# Source: context/governance.md
+# Reference from azure-pipelines.yml: - template: governance.terraform.ado.yml
+# {{PROJECT_NAME}}
+
+trigger:
+  branches: { include: [main] }
+  paths:    { include: ['**/*.tf', '**/*.tftest.hcl'] }
+pr:
+  branches: { include: [main] }
+  paths:    { include: ['**/*.tf'] }
+
+variables:
+  TF_VERSION: 1.9.8
+  TF_IN_AUTOMATION: true
+
+stages:
+  # ─── 1. Functional ─────────────────────────────────────────────────
+  - stage: Validate
+    jobs:
+      - job: fmt_validate
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - task: TerraformInstaller@1
+            inputs: { terraformVersion: $(TF_VERSION) }
+          - script: terraform fmt -check -recursive
+          - script: terraform init -backend=false
+          - script: terraform validate
+          - script: |
+              curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+              tflint --init && tflint --recursive --format compact
+
+  # ─── 2. Tested ─────────────────────────────────────────────────────
+  - stage: Test
+    dependsOn: []
+    jobs:
+      - job: terraform_test
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - task: TerraformInstaller@1
+            inputs: { terraformVersion: $(TF_VERSION) }
+          - script: |
+              set -e
+              for d in modules/*/; do
+                (cd "$d" && terraform init -backend=false && terraform test) || exit 1
+              done
+
+  # ─── 3. Secure ─────────────────────────────────────────────────────
+  - stage: Secure
+    dependsOn: []
+    jobs:
+      - job: scan
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - script: docker run --rm -v $(Build.SourcesDirectory):/src aquasec/tfsec:latest /src --minimum-severity HIGH
+          - script: docker run --rm -v $(Build.SourcesDirectory):/src bridgecrew/checkov:latest -d /src --quiet --framework terraform
+          - script: docker run --rm -v $(Build.SourcesDirectory):/repo zricethezav/gitleaks:latest detect --source /repo --redact --exit-code 1
+
+  # ─── 7. Auditable: plan + policy + cost ────────────────────────────
+  - stage: Plan
+    dependsOn: [Validate, Test, Secure]
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    jobs:
+      - job: plan
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - task: TerraformInstaller@1
+            inputs: { terraformVersion: $(TF_VERSION) }
+          # Azure OIDC federated credential — no SP secrets
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: $(AZURE_SERVICE_CONNECTION)
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                terraform init
+                terraform plan -out=tfplan.binary -no-color
+                terraform show -json tfplan.binary > tfplan.json
+          - script: docker run --rm -v $(Build.SourcesDirectory):/project openpolicyagent/conftest:latest test --policy /project/policy /project/tfplan.json
+          - script: |
+              curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh
+              infracost breakdown --path tfplan.json --format json --out-file infracost.json
+              infracost comment azure-repos --path infracost.json --azure-access-token $(System.AccessToken) --pull-request $(System.PullRequest.PullRequestId) --repo-url $(Build.Repository.Uri)
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: tfplan.json
+              ArtifactName: tfplan
+          - task: PublishBuildArtifacts@1
+            condition: succeededOrFailed()
+            inputs:
+              PathtoPublish: .claude/provenance
+              ArtifactName: claude-provenance
+
+  # ─── Apply with manual approval ────────────────────────────────────
+  - stage: Apply
+    dependsOn: [Plan]
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - deployment: apply
+        environment: production    # ADO environment with required approvers
+        pool: { vmImage: ubuntu-latest }
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: TerraformInstaller@1
+                  inputs: { terraformVersion: $(TF_VERSION) }
+                - script: terraform init && terraform apply -auto-approve

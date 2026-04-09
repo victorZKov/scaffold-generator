@@ -22,3 +22,9 @@ secrets/
 .tmp/
 tmp/
 scratch/
+
+# Claude provenance ledger (local-only, uploaded as CI artifact)
+.claude/provenance/
+
+# Local zip drafts
+*.zip

@@ -1,0 +1,105 @@
+# Terraform governance — Gartner 7-invariant pipeline gate
+# Source: context/governance.md
+# Include from .gitlab-ci.yml: include: { local: 'governance.terraform.gitlab.yml' }
+# {{PROJECT_NAME}}
+
+variables:
+  TF_VERSION: "1.9.8"
+  TF_IN_AUTOMATION: "true"
+
+stages:
+  - validate
+  - test
+  - secure
+  - plan
+  - apply
+
+.tf-base:
+  image: hashicorp/terraform:${TF_VERSION}
+  before_script:
+    - terraform --version
+
+# 1. Functional
+fmt-validate:
+  extends: .tf-base
+  stage: validate
+  script:
+    - terraform fmt -check -recursive
+    - terraform init -backend=false
+    - terraform validate
+
+tflint:
+  stage: validate
+  image: ghcr.io/terraform-linters/tflint:latest
+  script:
+    - tflint --init
+    - tflint --recursive --format compact
+
+# 2. Tested
+terraform-test:
+  extends: .tf-base
+  stage: test
+  script:
+    - |
+      for d in modules/*/; do
+        echo "→ test $d"
+        (cd "$d" && terraform init -backend=false && terraform test) || exit 1
+      done
+
+# 3. Secure
+tfsec:
+  stage: secure
+  image: aquasec/tfsec:latest
+  script: ["tfsec --minimum-severity HIGH ."]
+
+checkov:
+  stage: secure
+  image: bridgecrew/checkov:latest
+  script: ["checkov -d . --quiet --compact --framework terraform"]
+
+gitleaks:
+  stage: secure
+  image: zricethezav/gitleaks:latest
+  script: ["gitleaks detect --source . --redact --verbose --exit-code 1"]
+
+# 7. Auditable: plan + cost + policy
+plan:
+  extends: .tf-base
+  stage: plan
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - terraform init
+    - terraform plan -out=tfplan.binary -no-color
+    - terraform show -json tfplan.binary > tfplan.json
+  artifacts:
+    paths: [tfplan.binary, tfplan.json, .claude/provenance/]
+    expire_in: 90 days
+
+opa-conftest:
+  stage: plan
+  image: openpolicyagent/conftest:latest
+  needs: [plan]
+  script: ["conftest test --policy policy/ tfplan.json"]
+
+infracost:
+  stage: plan
+  image: infracost/infracost:ci-latest
+  needs: [plan]
+  script:
+    - infracost breakdown --path tfplan.json --format json --out-file infracost.json
+    - infracost comment gitlab --path infracost.json --repo $CI_PROJECT_PATH --merge-request $CI_MERGE_REQUEST_IID --gitlab-token $GITLAB_TOKEN
+  artifacts:
+    paths: [infracost.json]
+
+apply:
+  extends: .tf-base
+  stage: apply
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      when: manual
+  script:
+    - terraform init
+    - terraform apply -auto-approve
+  environment:
+    name: production

@@ -4,7 +4,7 @@
 
 | Tool | Purpose | Usage |
 |------|---------|-------|
-| (none yet) | — | — |
+| `governance-report.sh` | Compute Gartner success metrics for a generated project (provenance completeness, bypass attempts, src↔test pairing, TF module coverage). Exits non-zero on debt. | `./tools/governance-report.sh [path] [--json]` |
 
 ## Rules for Adding Tools
 

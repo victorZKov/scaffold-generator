@@ -1,0 +1,29 @@
+# {{MODULE_NAME}} — input variables
+
+variable "name" {
+  type        = string
+  description = "Resource base name."
+  validation {
+    condition     = length(var.name) > 0 && length(var.name) <= 60
+    error_message = "name must be between 1 and 60 characters."
+  }
+}
+
+variable "location" {
+  type        = string
+  description = "Cloud region / location."
+}
+
+variable "tags" {
+  type        = map(string)
+  description = "Mandatory tags. Must include: cost-center, owner, environment, data-classification."
+  validation {
+    condition = alltrue([
+      contains(keys(var.tags), "cost-center"),
+      contains(keys(var.tags), "owner"),
+      contains(keys(var.tags), "environment"),
+      contains(keys(var.tags), "data-classification"),
+    ])
+    error_message = "tags must include cost-center, owner, environment and data-classification."
+  }
+}

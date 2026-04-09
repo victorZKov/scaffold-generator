@@ -1,0 +1,2 @@
+# {{MODULE_NAME}} — outputs
+# Every output must have a description (enforced by tflint terraform_documented_outputs).

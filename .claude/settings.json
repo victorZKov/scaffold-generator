@@ -41,6 +41,50 @@
             "command": ".claude/hooks/block-no-verify.sh"
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-secrets.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/block-tf-public-exposure.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/require-tf-tags.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/enforce-invariants.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/require-tests.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/enforce-tf-policy.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/require-tf-module-tests.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/provenance-stamp.sh"
+          }
+        ]
       }
     ]
   }

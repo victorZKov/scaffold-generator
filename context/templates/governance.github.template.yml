@@ -1,0 +1,105 @@
+# Governance — Gartner 7-invariant pipeline gate (checkpoint #3)
+# Source: context/governance.md
+# Re-runs the same tools as generation hooks + pre-commit, in a clean env.
+# Any failing invariant blocks the merge.
+# {{PROJECT_NAME}}
+
+name: governance
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: read
+
+jobs:
+  # ─── 1. Functional + 2. Tested ───────────────────────────────────────
+  build-test:
+    name: Build, test, coverage (≥75%)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      # {{IF_DOTNET}}
+      - uses: actions/setup-dotnet@v4
+        with: { dotnet-version: "10.0.x" }
+      - run: dotnet restore
+      - run: dotnet format --verify-no-changes
+      - run: dotnet build --no-restore --configuration Release
+      - run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage" --results-directory ./coverage
+      - name: Coverage gate (≥75%)
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool || true
+          reportgenerator -reports:./coverage/**/coverage.cobertura.xml -targetdir:./coverage/report -reporttypes:"TextSummary;Cobertura"
+          LINE=$(grep -oP 'Line coverage:\s*\K[\d.]+' ./coverage/report/Summary.txt)
+          echo "Line coverage: $LINE%"
+          awk -v c="$LINE" 'BEGIN{ if (c+0 < 75) { print "FAIL: coverage <75%"; exit 1 } }'
+      # {{/IF_DOTNET}}
+
+      # {{IF_FRONTEND}}
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "pnpm" }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test --coverage
+      # {{/IF_FRONTEND}}
+
+  # ─── 3. Secure: secrets, SAST, SCA ───────────────────────────────────
+  secure:
+    name: Secure (secrets + SAST + SCA)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: gitleaks (secret scan)
+        uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+
+      - name: CodeQL init
+        uses: github/codeql-action/init@v3
+        with: { languages: "csharp,javascript-typescript" }
+      - name: CodeQL analyze
+        uses: github/codeql-action/analyze@v3
+
+      - name: Dependency review
+        uses: actions/dependency-review-action@v4
+        if: github.event_name == 'pull_request'
+        with: { fail-on-severity: high }
+
+  # ─── 7. Auditable: SBOM + provenance ─────────────────────────────────
+  auditable:
+    name: SBOM + provenance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate SBOM (syft)
+        uses: anchore/sbom-action@v0
+        with:
+          format: spdx-json
+          output-file: sbom.spdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with: { name: sbom, path: sbom.spdx.json }
+      - name: Upload provenance ledger
+        if: hashFiles('.claude/provenance/*.jsonl') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-provenance
+          path: .claude/provenance/*.jsonl
+
+  # ─── Aggregate gate ───────────────────────────────────────────────────
+  governance-gate:
+    name: Governance gate
+    needs: [build-test, secure, auditable]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "All seven invariants passed."

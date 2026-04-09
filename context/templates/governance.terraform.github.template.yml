@@ -1,0 +1,136 @@
+# Terraform governance — Gartner 7-invariant pipeline gate
+# Source: context/governance.md
+# {{PROJECT_NAME}}
+
+name: terraform-governance
+on:
+  pull_request:
+    paths: ['**/*.tf', '**/*.tftest.hcl', '.github/workflows/terraform-governance.yml']
+  push:
+    branches: [main]
+    paths: ['**/*.tf']
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write          # OIDC for cloud auth — never store SP secrets
+  security-events: write
+
+env:
+  TF_VERSION: "1.9.8"
+  TF_IN_AUTOMATION: "true"
+
+jobs:
+  fmt-validate:
+    name: 1. Functional (fmt + validate + tflint + docs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: "${{ env.TF_VERSION }}" }
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false
+      - run: terraform validate
+      - uses: terraform-linters/setup-tflint@v4
+      - run: tflint --init && tflint --recursive --format compact
+
+  secure:
+    name: 3. Secure (tfsec + checkov + gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: gitleaks/gitleaks-action@v2
+        env: { GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} }
+      - uses: aquasecurity/tfsec-action@v1.0.3
+        with: { soft_fail: false, additional_args: --minimum-severity HIGH }
+      - uses: bridgecrewio/checkov-action@v12
+        with:
+          framework: terraform
+          quiet: true
+          soft_fail: false
+
+  test:
+    name: 2. Tested (terraform test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: "${{ env.TF_VERSION }}" }
+      - name: Run terraform test on every module
+        run: |
+          set -e
+          for d in $(find modules -type d -mindepth 1 -maxdepth 1 2>/dev/null); do
+            echo "::group::test $d"
+            (cd "$d" && terraform init -backend=false && terraform test) || exit 1
+            echo "::endgroup::"
+          done
+
+  plan:
+    name: 7. Auditable (plan + cost + policy)
+    runs-on: ubuntu-latest
+    needs: [fmt-validate, secure, test]
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: "${{ env.TF_VERSION }}" }
+
+      # OIDC login (Azure example) — no secrets in repo
+      # {{IF_AZURE}}
+      - uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      # {{/IF_AZURE}}
+
+      - run: terraform init
+      - run: terraform plan -out=tfplan.binary -no-color
+      - run: terraform show -json tfplan.binary > tfplan.json
+
+      # OPA / Conftest policy gate
+      - uses: instrumenta/conftest-action@master
+        with: { files: tfplan.json, policy: policy }
+
+      # Cost estimate
+      - uses: infracost/actions/setup@v3
+        with: { api-key: ${{ secrets.INFRACOST_API_KEY }} }
+      - run: infracost breakdown --path tfplan.json --format json --out-file infracost.json
+      - uses: infracost/actions/comment@v3
+        with: { path: infracost.json, behavior: update }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ github.run_id }}
+          path: |
+            tfplan.binary
+            tfplan.json
+            infracost.json
+          retention-days: 90
+
+      - if: hashFiles('.claude/provenance/*.jsonl') != ''
+        uses: actions/upload-artifact@v4
+        with: { name: claude-provenance, path: .claude/provenance/*.jsonl }
+
+  apply:
+    name: Apply (manual approval)
+    needs: [plan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production       # GitHub environment with required reviewers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: "${{ env.TF_VERSION }}" }
+      - run: terraform init
+      - run: terraform apply -auto-approve
+
+  drift:
+    name: Drift detection
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform init && terraform plan -detailed-exitcode -no-color

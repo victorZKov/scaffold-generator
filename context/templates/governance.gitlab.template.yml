@@ -1,0 +1,78 @@
+# Governance — Gartner 7-invariant pipeline gate (checkpoint #3)
+# Source: context/governance.md
+# Include from .gitlab-ci.yml:  include: { local: 'governance.gitlab.yml' }
+# {{PROJECT_NAME}}
+
+stages:
+  - build-test
+  - secure
+  - auditable
+  - gate
+
+variables:
+  COVERAGE_MIN: "75"
+
+# ─── 1. Functional + 2. Tested ───────────────────────────────────────
+build-test:dotnet:
+  stage: build-test
+  image: mcr.microsoft.com/dotnet/sdk:10.0
+  rules:
+    - if: '$DOTNET_ENABLED == "true"'
+  script:
+    - dotnet restore
+    - dotnet format --verify-no-changes
+    - dotnet build --no-restore -c Release
+    - dotnet test --no-build -c Release --collect:"XPlat Code Coverage" --results-directory coverage
+    - dotnet tool install -g dotnet-reportgenerator-globaltool
+    - export PATH="$PATH:$HOME/.dotnet/tools"
+    - reportgenerator -reports:coverage/**/coverage.cobertura.xml -targetdir:coverage/report -reporttypes:"TextSummary;Cobertura"
+    - LINE=$(grep -oP 'Line coverage:\s*\K[\d.]+' coverage/report/Summary.txt)
+    - awk -v c="$LINE" -v m="$COVERAGE_MIN" 'BEGIN{ if (c+0 < m+0) exit 1 }'
+  coverage: '/Line coverage:\s*([\d.]+)%/'
+  artifacts:
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/report/Cobertura.xml
+
+build-test:frontend:
+  stage: build-test
+  image: node:20
+  rules:
+    - if: '$FRONTEND_ENABLED == "true"'
+  before_script:
+    - corepack enable && corepack prepare pnpm@9 --activate
+  script:
+    - pnpm install --frozen-lockfile
+    - pnpm lint
+    - pnpm typecheck
+    - pnpm test --coverage
+
+# ─── 3. Secure ───────────────────────────────────────────────────────
+secure:gitleaks:
+  stage: secure
+  image: zricethezav/gitleaks:latest
+  script: [ "gitleaks detect --source . --redact --verbose --exit-code 1" ]
+
+include:
+  - template: Security/SAST.gitlab-ci.yml
+  - template: Security/Dependency-Scanning.gitlab-ci.yml
+  - template: Security/Secret-Detection.gitlab-ci.yml
+
+# ─── 7. Auditable ────────────────────────────────────────────────────
+auditable:sbom:
+  stage: auditable
+  image: anchore/syft:latest
+  script: [ "syft . -o spdx-json=sbom.spdx.json" ]
+  artifacts:
+    paths: [sbom.spdx.json, .claude/provenance/]
+    expire_in: 90 days
+
+# ─── Gate ────────────────────────────────────────────────────────────
+governance-gate:
+  stage: gate
+  image: alpine
+  needs: ["build-test:dotnet", "build-test:frontend", "secure:gitleaks", "auditable:sbom"]
+  script: [ "echo 'All seven invariants passed.'" ]
+  allow_failure: false

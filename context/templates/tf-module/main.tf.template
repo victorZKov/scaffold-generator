@@ -1,0 +1,15 @@
+# {{MODULE_NAME}} — main resources
+# Source: context/governance.md
+# All resources must include the common_tags merge for the Auditable invariant.
+
+locals {
+  common_tags = merge(
+    var.tags,
+    {
+      module      = "{{MODULE_NAME}}"
+      managed-by  = "terraform"
+    }
+  )
+}
+
+# Add resources here. Every taggable resource MUST include `tags = local.common_tags`.

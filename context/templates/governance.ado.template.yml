@@ -1,0 +1,94 @@
+# Governance — Gartner 7-invariant pipeline gate (checkpoint #3)
+# Source: context/governance.md
+# Reference from azure-pipelines.yml:  - template: governance.ado.yml
+# {{PROJECT_NAME}}
+
+trigger:
+  branches: { include: [main] }
+pr:
+  branches: { include: [main] }
+
+variables:
+  COVERAGE_MIN: 75
+
+stages:
+  # ─── 1. Functional + 2. Tested ─────────────────────────────────────
+  - stage: BuildTest
+    jobs:
+      - job: dotnet
+        condition: eq(variables['DOTNET_ENABLED'], 'true')
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - task: UseDotNet@2
+            inputs: { version: '10.0.x' }
+          - script: dotnet restore
+          - script: dotnet format --verify-no-changes
+          - script: dotnet build --no-restore -c Release
+          - script: dotnet test --no-build -c Release --collect:"XPlat Code Coverage" --results-directory $(Agent.TempDirectory)/cov
+          - script: |
+              dotnet tool install -g dotnet-reportgenerator-globaltool
+              export PATH="$PATH:$HOME/.dotnet/tools"
+              reportgenerator -reports:$(Agent.TempDirectory)/cov/**/coverage.cobertura.xml -targetdir:$(Agent.TempDirectory)/cov/report -reporttypes:"TextSummary;Cobertura"
+              LINE=$(grep -oP 'Line coverage:\s*\K[\d.]+' $(Agent.TempDirectory)/cov/report/Summary.txt)
+              awk -v c="$LINE" -v m="$(COVERAGE_MIN)" 'BEGIN{ if (c+0 < m+0) { print "FAIL: coverage <"m"%"; exit 1 } }'
+          - task: PublishCodeCoverageResults@2
+            inputs:
+              summaryFileLocation: $(Agent.TempDirectory)/cov/report/Cobertura.xml
+
+      - job: frontend
+        condition: eq(variables['FRONTEND_ENABLED'], 'true')
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - task: NodeTool@0
+            inputs: { versionSpec: '20.x' }
+          - script: corepack enable && corepack prepare pnpm@9 --activate
+          - script: pnpm install --frozen-lockfile
+          - script: pnpm lint
+          - script: pnpm typecheck
+          - script: pnpm test --coverage
+
+  # ─── 3. Secure ─────────────────────────────────────────────────────
+  - stage: Secure
+    dependsOn: []
+    jobs:
+      - job: scan
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - script: |
+              docker run --rm -v $(Build.SourcesDirectory):/repo zricethezav/gitleaks:latest \
+                detect --source /repo --redact --verbose --exit-code 1
+            displayName: gitleaks
+          - task: AdvancedSecurity-Codeql-Init@1
+            inputs: { languages: 'csharp,javascript' }
+          - task: AdvancedSecurity-Codeql-Analyze@1
+          - task: AdvancedSecurity-Dependency-Scanning@1
+
+  # ─── 7. Auditable ──────────────────────────────────────────────────
+  - stage: Auditable
+    dependsOn: []
+    jobs:
+      - job: sbom
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - script: |
+              curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+              syft . -o spdx-json=$(Build.ArtifactStagingDirectory)/sbom.spdx.json
+            displayName: SBOM (syft)
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: $(Build.ArtifactStagingDirectory)/sbom.spdx.json
+              ArtifactName: sbom
+          - task: PublishBuildArtifacts@1
+            condition: succeededOrFailed()
+            inputs:
+              PathtoPublish: .claude/provenance
+              ArtifactName: claude-provenance
+
+  # ─── Gate ──────────────────────────────────────────────────────────
+  - stage: GovernanceGate
+    dependsOn: [BuildTest, Secure, Auditable]
+    jobs:
+      - job: gate
+        pool: { vmImage: ubuntu-latest }
+        steps:
+          - script: echo "All seven invariants passed."

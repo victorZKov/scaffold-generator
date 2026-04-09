@@ -1,0 +1,21 @@
+# {{MODULE_NAME}} — native terraform test (Tested invariant)
+# Run: terraform test
+
+variables {
+  name     = "test"
+  location = "westeurope"
+  tags = {
+    "cost-center"         = "test-001"
+    "owner"               = "team@example.com"
+    "environment"         = "test"
+    "data-classification" = "internal"
+  }
+}
+
+run "validate" {
+  command = plan
+  assert {
+    condition     = var.name == "test"
+    error_message = "name variable not propagated"
+  }
+}

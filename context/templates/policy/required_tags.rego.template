@@ -1,0 +1,27 @@
+# OPA / Conftest policy — required tags on every taggable resource
+# Source: context/governance.md → Auditable + FinOps
+# Run: conftest test --policy policy/ tfplan.json
+# {{PROJECT_NAME}}
+
+package terraform.tags
+
+required_tags := {"cost-center", "owner", "environment", "data-classification"}
+
+deny[msg] {
+    resource := input.resource_changes[_]
+    is_taggable(resource.type)
+    actual := object.get(resource.change.after, "tags", {})
+    missing := required_tags - {k | actual[k]}
+    count(missing) > 0
+    msg := sprintf("Resource %q is missing required tags: %v", [resource.address, missing])
+}
+
+is_taggable(t) {
+    startswith(t, "azurerm_")
+}
+is_taggable(t) {
+    startswith(t, "aws_")
+}
+is_taggable(t) {
+    startswith(t, "google_")
+}

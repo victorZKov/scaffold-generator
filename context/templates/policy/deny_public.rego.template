@@ -1,0 +1,34 @@
+# OPA / Conftest — deny public exposure patterns
+# Source: context/governance.md → Secure invariant
+# {{PROJECT_NAME}}
+
+package terraform.public
+
+deny[msg] {
+    r := input.resource_changes[_]
+    r.type == "azurerm_storage_account"
+    r.change.after.allow_blob_public_access == true
+    msg := sprintf("%s: allow_blob_public_access must be false", [r.address])
+}
+
+deny[msg] {
+    r := input.resource_changes[_]
+    r.type == "azurerm_storage_account"
+    r.change.after.public_network_access_enabled == true
+    msg := sprintf("%s: public_network_access_enabled must be false (use private endpoints)", [r.address])
+}
+
+deny[msg] {
+    r := input.resource_changes[_]
+    r.type == "aws_s3_bucket_public_access_block"
+    not r.change.after.block_public_acls
+    msg := sprintf("%s: block_public_acls must be true", [r.address])
+}
+
+deny[msg] {
+    r := input.resource_changes[_]
+    contains(r.type, "security_group")
+    rule := r.change.after.ingress[_]
+    rule.cidr_blocks[_] == "0.0.0.0/0"
+    msg := sprintf("%s: ingress from 0.0.0.0/0 is not allowed", [r.address])
+}

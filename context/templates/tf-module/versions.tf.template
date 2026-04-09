@@ -1,0 +1,19 @@
+# {{MODULE_NAME}} — provider/version pins (Functional invariant)
+
+terraform {
+  required_version = ">= 1.9.0"
+  required_providers {
+    # {{IF_AZURE}}
+    azurerm = {
+      source  = "hashicorp/azurerm"
+      version = "~> 4.0"
+    }
+    # {{/IF_AZURE}}
+    # {{IF_AWS}}
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    # {{/IF_AWS}}
+  }
+}

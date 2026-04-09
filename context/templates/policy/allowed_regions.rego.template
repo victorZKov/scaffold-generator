@@ -1,0 +1,16 @@
+# OPA / Conftest — restrict resources to approved regions
+# Source: context/governance.md → Auditable (data residency)
+# Customize the allowed_regions set per project answers (Q15j).
+# {{PROJECT_NAME}}
+
+package terraform.regions
+
+allowed_regions := {{ALLOWED_REGIONS}}  # e.g. {"westeurope", "northeurope"}
+
+deny[msg] {
+    r := input.resource_changes[_]
+    region := object.get(r.change.after, "location", "")
+    region != ""
+    not allowed_regions[lower(region)]
+    msg := sprintf("%s: region %q is not in the allowed set %v", [r.address, region, allowed_regions])
+}

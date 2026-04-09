@@ -145,10 +145,51 @@
 - **NEVER commit as Claude** — no AI attribution in commits
 - **NEVER --no-verify** — fix the hook, don't skip it
 - **NEVER destructive az CLI** — only read-only (list, show, get)
+- **NEVER write secrets** to source — use Key Vault / GitHub Secrets / .env.local (gitignored)
+- **NEVER expose Terraform resources publicly** — no `0.0.0.0/0`, no `allow_blob_public_access = true`, no `public_network_access_enabled = true`
+- **NEVER omit mandatory tags** on cloud resources — `cost-center`, `owner`, `environment`, `data-classification`
+- **NEVER hand-edit AI-generated code that failed an invariant** — reject and regenerate (preserves provenance)
 - **Always ask before any design decision** — never assume
 - **Always ask before any destructive action** — never rm -rf unconfirmed paths
 
 *(Add new guardrails as mistakes happen. Keep this under 15 items.)*
+
+---
+
+## Governance — Gartner 7 Invariants
+
+This project enforces the seven behavioral invariants at three checkpoints. See `context/governance.md` for the full spec.
+
+| Invariant | Enforced by |
+|-----------|-------------|
+| Functional | analyzers, linters, `enforce-invariants.sh` hook, CI build |
+| Tested | `require-tests.sh` hook, ≥75% coverage gate in CI |
+| Secure | `block-secrets.sh`, `block-tf-public-exposure.sh`, gitleaks, tfsec, checkov, CodeQL |
+| Scalable | architecture review, SonarCloud rules |
+| Performant | NFR-driven benchmarks in CI |
+| Observable | OpenTelemetry from day one (see `docs/observability.md`) |
+| Auditable | `provenance-stamp.sh` hook, conventional commits, SBOM (syft), signed artifacts |
+
+**Hooks active in this project** (see `.claude/hooks/`):
+
+| Hook | Phase | Purpose |
+|------|-------|---------|
+| `block-npm.sh` | PreToolUse Bash | Enforce pnpm |
+| `block-git-push.sh` | PreToolUse Bash | Block unauthorized push |
+| `block-terraform-apply.sh` | PreToolUse Bash | Apply only via pipeline |
+| `block-no-verify.sh` | PreToolUse Bash | Forbid hook bypass |
+| `block-destructive-actions.sh` | PreToolUse Bash | Block rm -rf, az delete |
+| `block-claude-attribution.sh` | PreToolUse Bash | No AI authorship in commits |
+| `block-secrets.sh` | PreToolUse Write/Edit | Detect AWS/GH/Azure/PEM secrets |
+| `block-tf-public-exposure.sh` | PreToolUse Write/Edit | Block public CIDRs, public storage, weak TLS |
+| `require-tf-tags.sh` | PreToolUse Write/Edit | Mandatory tags on every taggable resource |
+| `enforce-invariants.sh` | PostToolUse Write/Edit | Lint/format on each file written |
+| `require-tests.sh` | PostToolUse Write/Edit | Warn/block when prod code lacks a sibling test |
+| `enforce-tf-policy.sh` | PostToolUse Write/Edit | tfsec + checkov on .tf files |
+| `require-tf-module-tests.sh` | PostToolUse Write/Edit | Every TF module needs `tests/*.tftest.hcl` |
+| `provenance-stamp.sh` | PostToolUse Write/Edit | Append to `.claude/provenance/*.jsonl` |
+
+**Reporting**: `./tools/governance-report.sh` prints the success metrics (provenance completeness, bypass attempts, src↔test pairing, TF module coverage). Runs in CI as a soft gate.
 
 ---
 
