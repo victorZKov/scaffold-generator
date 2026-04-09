@@ -152,6 +152,15 @@ scaffold-generator/
 
 ---
 
+## Sponsor
+
+If this project saves you time or keeps your team out of trouble, consider sponsoring the work:
+
+- [GitHub Sponsors](https://github.com/sponsors/victorZKov)
+- [Buy Me a Coffee](https://buymeacoffee.com/victorxata)
+
+---
+
 ## Contributing
 
 If your team has a guardrail that's missing, open an issue. The hook list is meant to grow as we learn what fails in real projects.
