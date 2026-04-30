@@ -4,10 +4,6 @@
 
 This project generates deterministic, production-grade scaffolding for new projects. It conducts a structured interview and produces all required files without making design assumptions.
 
-**Reference projects:**
-- `/Users/victorzaragoza/Documents/Dev/k/tb/DXPortal` — Full stack, Azure, ADO pipelines
-- `/Users/victorzaragoza/Documents/Dev/k/quantumapi` — Full stack, SaaS, GitHub Actions
-
 ---
 
 ## How to Use This
