@@ -38,7 +38,3 @@ Given a set of answers, this system produces:
 - `atlas/` — ATLAS checklist templates (if ATLAS+GOTCHA+SDD selected)
 - Initial issues/work items as runnable scripts (GitHub, GitLab, or ADO)
 
-## Reference Projects
-
-- `/Users/victorzaragoza/Documents/Dev/k/tb/DXPortal` — Full stack, Azure, ADO pipelines
-- `/Users/victorzaragoza/Documents/Dev/k/quantumapi` — Full stack, multi-tenant SaaS, GitHub Actions
