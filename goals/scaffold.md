@@ -458,6 +458,23 @@ Generate files in this order (announce each group before creating):
     - For GitLab: print `glab issue create` commands as a runnable script
     - Issues follow the structure: one epic/feature per module, child tasks per functional requirement
     - If ATLAS+GOTCHA+SDD selected, each issue includes the SDD spec template and ATLAS checklist
+    - The script MUST be **idempotent-friendly and safe by default**: default to a dry-run that only prints what it would create, with an explicit `--apply` flag to actually create the items. Never make the bare invocation create anything.
+
+11b. **Offer to create the issues now** (only if Q14 ∈ {GitHub Issues, Azure DevOps Boards, GitLab Issues} — i.e. a tracker with a CLI and a generated script). For Jira, Linear, or "don't create issues", SKIP this sub-step entirely; do not ask.
+    - Ask the user (in their language), e.g.:
+      > "I've generated the issue-creation script at `scripts/create-work-items.sh` (or the platform equivalent). Do you want me to create all the issues/tasks now in {GitHub | Azure DevOps | GitLab}? I'll run a dry-run first so you can review, then create them on your confirmation."
+    - If the user declines: do nothing further here — the script remains for them to run later (already covered by NEXT-STEPS).
+    - If the user accepts:
+      1. **Pre-flight checks** — verify the required CLI is installed and authenticated, and the target exists:
+         - GitHub: `gh auth status`; repo exists (`gh repo view <org>/<repo>`).
+         - Azure DevOps: `az account show` + `az devops configure --defaults`; project/repo exist.
+         - GitLab: `glab auth status`; project exists.
+         - If a prerequisite is missing (not logged in, repo/project doesn't exist yet), STOP and tell the user exactly what to run first (point them at `scripts/setup-repo.sh`). Do NOT attempt to create the repo/remote or push.
+      2. **Dry-run** — execute the generated script in its default (print-only) mode and show the user the list of epics/tasks it will create.
+      3. **Confirm** — get an explicit affirmative ("SÍ"/"YES"/equivalent) to proceed.
+      4. **Apply** — run the script with `--apply` (or the platform equivalent). The script itself does the creation via the official CLI; Claude only invokes the already-generated, reviewed script — it does not hand-craft `create` commands inline.
+      5. **Report** — summarize what was created (counts, and IDs/URLs if the CLI returns them). On partial failure, surface which items failed and how to re-run.
+    - Constraint reminder: issue creation goes THROUGH the generated script (the reproducible artifact), never as ad-hoc inline commands. Creating issues is outward-facing — only proceed after the explicit confirmation in step 11b.4.
 12. **Git platform setup** — Print commands to create repo, labels, milestones (do NOT execute)
 13. **AI agent skills** — run `npx autoskills -y` in `{outputPath}` to auto-install relevant AI skills.
     > NOTE: autoskills writes files into `.claude/skills/` which would normally trigger `enforce-invariants.sh`, `require-tests.sh` and `provenance-stamp.sh`. Run autoskills BEFORE the governance hooks are wired (i.e. before step 2's hook activation) OR temporarily set `CLAUDE_HOOKS_DISABLED=1` for the duration of this single command and re-enable immediately. Provenance for autoskills-generated files is captured by a one-shot `tools/stamp-existing-files.sh` after the command completes.
@@ -467,7 +484,8 @@ Generate files in this order (announce each group before creating):
 - All files created in `{outputPath}`
 - AI agent skills installed for the detected stack (via autoskills)
 - Requirements captured in `specs/` (if SDD selected) or `docs/` directory
-- Initial issues generated as runnable script (if issue tracking selected)
+- Initial issues generated as a runnable, dry-run-by-default script (if issue tracking selected)
+- Issues/tasks created in the tracker ONLY if the user accepted the Phase 10 step-11b offer (and the CLI was authenticated and the target existed); otherwise the script is left for the user to run
 - A `NEXT-STEPS.md` is generated with:
   1. Git init + first commit instructions
   2. Repo creation command (GitHub/GitLab/ADO)
@@ -481,5 +499,5 @@ Generate files in this order (announce each group before creating):
 - NEVER make design decisions on behalf of the user (module names, folder names, port numbers — all come from answers)
 - NEVER push to any git remote (print the commands, let the user run them)
 - NEVER run `terraform apply` or any destructive command
-- NEVER create issues automatically — always generate as a script the user runs
+- ALWAYS generate issues as a runnable script first (the reproducible artifact). NEVER create issues without an explicit user request + confirmation. When the user opts in (Phase 10, step 11b), creation happens by running that generated script with `--apply` — never via ad-hoc inline `create` commands, and never before a dry-run has been shown and confirmed.
 - If a question is skipped or unclear, ask again — never assume
