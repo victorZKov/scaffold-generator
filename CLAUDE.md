@@ -17,8 +17,7 @@ When the user asks to create / scaffold / start a new project, follow **`goals/s
 5. Confirm DevOps platform (GitHub, GitLab, Azure DevOps) and issue tracking
 6. Ask about ATLAS+GOTCHA+SDD methodology adoption
 7. Never generate files until receiving explicit "SÍ" confirmation
-8. Generate in the prescribed order (including issues as runnable, dry-run-by-default scripts)
-9. After generating, **offer to create the issues now** in the chosen tracker (GitHub/ADO/GitLab only) — on acceptance, run the generated script (dry-run → confirm → `--apply`); never create issues ad-hoc or without confirmation
+8. Generate in the prescribed order (including issues as runnable scripts)
 
 **Never take shortcuts. Never assume answers. Always ask.**
 

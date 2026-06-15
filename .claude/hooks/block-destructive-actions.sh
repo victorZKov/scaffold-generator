@@ -5,24 +5,13 @@
 INPUT=$(cat)
 COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
-# Block destructive az CLI commands.
-# Rationale: cloud INFRASTRUCTURE changes must go through Terraform + CI/CD. But Azure DevOps
-# project/repo/board management (az devops / az boards / az repos) and pipelines are project
-# administration, NOT infrastructure — they are allowed. A `delete` is still blocked everywhere,
-# even within the allowed groups, to prevent removing a project/repo/board by accident.
+# Block destructive az CLI (allow read-only and az pipelines)
 if echo "$COMMAND" | grep -qE '\baz\s+'; then
-    # Hard block: any az ... delete (highest priority, no exceptions via the allow-list).
-    if echo "$COMMAND" | grep -qE '\b(delete|purge)\b'; then
-        echo "Blocked: 'az ... delete/purge' is not allowed. Destructive removals must be done deliberately by the user, never by the agent." >&2
-        exit 2
-    fi
-    # Allow-list: project/work-item/repo administration and pipelines (not infrastructure).
-    if echo "$COMMAND" | grep -qE '\baz\s+(devops|boards|repos|pipelines?)\s+'; then
+    if echo "$COMMAND" | grep -qE '\baz\s+pipelines?\s+'; then
         exit 0
     fi
-    # Everything else destructive on az (typically infrastructure) stays blocked.
-    if echo "$COMMAND" | grep -qE '\b(create|update|start|stop|restart|remove|set)\b'; then
-        echo "Blocked: Destructive az CLI commands are not allowed. Only read-only operations (list, show, get) are permitted for cloud resources. Infrastructure changes go through Terraform and CI/CD pipelines. (Azure DevOps admin via 'az devops/boards/repos' is allowed; 'delete' is never allowed.)" >&2
+    if echo "$COMMAND" | grep -qE '\b(create|delete|update|start|stop|restart|purge|remove|set)\b'; then
+        echo "Blocked: Destructive az CLI commands are not allowed. Only read-only operations (list, show, get) are permitted. All changes go through Terraform and CI/CD pipelines." >&2
         exit 2
     fi
 fi
