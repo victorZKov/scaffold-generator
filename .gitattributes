@@ -1,0 +1,4 @@
+# Windows: keep LF line endings on shell scripts. With core.autocrlf=true (the Git for
+# Windows default) .sh files would be checked out as CRLF and bash would fail with
+# "$'\r': command not found". No effect on macOS/Linux, where checkouts are LF already.
+*.sh text eol=lf
