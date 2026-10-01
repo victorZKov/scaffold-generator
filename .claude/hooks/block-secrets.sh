@@ -7,6 +7,19 @@ INPUT=$(cat)
 CONTENT=$(echo "$INPUT" | jq -r '.tool_input.content // .tool_input.new_string // empty')
 FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
 
+# --- Cross-platform support (added for Windows; no-op on macOS/Linux) -------
+# lib/platform.sh detects the OS. On Windows (Git Bash) it strips the "\r" that
+# jq.exe adds and converts C:\ backslash paths to forward slashes, so the checks
+# below work unchanged. On macOS/Linux these calls return their input as-is.
+# If lib/platform.sh is missing, the hook falls back to the original behaviour.
+HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$HOOK_DIR/lib/platform.sh" ]; then
+    . "$HOOK_DIR/lib/platform.sh"
+    CONTENT=$(normalize_text "$CONTENT")
+    FILE_PATH=$(normalize_path "$FILE_PATH")
+fi
+# ---------------------------------------------------------------------------
+
 [ -z "$CONTENT" ] && exit 0
 
 # Skip the hook files themselves and obvious template/example paths
